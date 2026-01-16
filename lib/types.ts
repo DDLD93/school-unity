@@ -51,6 +51,48 @@ export enum RiskCategory {
   Water = "water",
   Power = "power",
   Overcrowding = "overcrowding",
+  Services = "services",
+  Facilities = "facilities",
+}
+
+export enum EquipmentCategory {
+  Computers = "computers",
+  LabEquipment = "lab_equipment",
+  SportsEquipment = "sports_equipment",
+  Furniture = "furniture",
+  LibraryBooks = "library_books",
+  AudioVisual = "audio_visual",
+  Other = "other",
+}
+
+export enum FacilityType {
+  ScienceLab = "science_lab",
+  ComputerLab = "computer_lab",
+  Library = "library",
+  SportsCenter = "sports_center",
+  StaffQuarters = "staff_quarters",
+  Auditorium = "auditorium",
+  Cafeteria = "cafeteria",
+  Clinic = "clinic",
+  Workshop = "workshop",
+}
+
+export enum TeacherQualification {
+  BEd = "b_ed",
+  MEd = "m_ed",
+  PhD = "phd",
+  Other = "other",
+}
+
+export enum SubjectArea {
+  Science = "science",
+  Arts = "arts",
+  Commercial = "commercial",
+  Technical = "technical",
+  Languages = "languages",
+  Mathematics = "mathematics",
+  SocialStudies = "social_studies",
+  PhysicalEducation = "physical_education",
 }
 
 export interface HostelBlock {
@@ -116,6 +158,59 @@ export interface RiskFlag {
   active: boolean;
 }
 
+export interface TeacherSummary {
+  total: number;
+  qualified: number;
+  byQualification: {
+    bEd: number;
+    mEd: number;
+    phd: number;
+    other: number;
+  };
+  bySubjectArea: {
+    science: number;
+    arts: number;
+    commercial: number;
+    technical: number;
+    languages: number;
+    mathematics: number;
+    socialStudies: number;
+    physicalEducation: number;
+  };
+}
+
+export interface Equipment {
+  id: string;
+  schoolId: string;
+  category: EquipmentCategory;
+  totalCount: number;
+  functionalCount: number;
+  condition: Condition;
+}
+
+export interface ComputerLab {
+  id: string;
+  schoolId: string;
+  name: string;
+  totalComputers: number;
+  functionalComputers: number;
+  lastMaintenanceDate?: string;
+  condition: Condition;
+  operationalStatus: OperationalStatus;
+}
+
+export interface Facility {
+  id: string;
+  schoolId: string;
+  type: FacilityType;
+  name: string;
+  capacity: number;
+  currentUsage: number;
+  condition: Condition;
+  operationalStatus: OperationalStatus;
+  equipmentCount?: number;
+}
+
 export interface School {
   id: string;
   name: string;
@@ -127,6 +222,10 @@ export interface School {
   classrooms: Classroom[];
   waterSources: WaterSource[];
   powerSources: PowerSource[];
+  teacherSummary: TeacherSummary;
+  equipment: Equipment[];
+  computerLabs: ComputerLab[];
+  facilities: Facility[];
   riskFlags?: RiskFlag[];
 }
 

@@ -11,6 +11,10 @@ import {
   Condition,
   OperationalStatus,
   WaterReliability,
+  TeacherSummary,
+  Equipment,
+  ComputerLab,
+  Facility,
 } from "./types";
 
 export function calculateHostelStatus(hostel: Hostel): Status {
@@ -128,6 +132,10 @@ export function calculateSchoolStatus(school: School): Status {
   const classroomStatuses = school.classrooms.map(calculateClassroomStatus);
   const waterStatus = calculateWaterStatus(school.waterSources);
   const powerStatus = calculatePowerStatus(school.powerSources);
+  const teacherStatus = calculateTeacherStatus(school.teacherSummary, school.totalStudents);
+  const equipmentStatus = calculateEquipmentStatus(school.equipment);
+  const computerLabStatus = calculateComputerLabStatus(school.computerLabs);
+  const facilityStatus = calculateFacilityStatus(school.facilities);
 
   // Check for overcrowding risk
   const totalBeds = school.hostels.reduce((sum, h) => sum + h.totalBeds, 0);
@@ -147,6 +155,10 @@ export function calculateSchoolStatus(school: School): Status {
     ...classroomStatuses,
     waterStatus,
     powerStatus,
+    teacherStatus,
+    equipmentStatus,
+    computerLabStatus,
+    facilityStatus,
     overcrowdingStatus,
   ];
 
@@ -245,6 +257,68 @@ export function generateRiskFlags(school: School): RiskFlag[] {
     });
   }
 
+  // Teacher/Services risks
+  const teacherStatus = calculateTeacherStatus(school.teacherSummary, school.totalStudents);
+  if (teacherStatus !== Status.Green) {
+    const ratio = school.totalStudents / school.teacherSummary.total;
+    const qualPercent = (school.teacherSummary.qualified / school.teacherSummary.total) * 100;
+    flags.push({
+      category: RiskCategory.Services,
+      severity: teacherStatus,
+      description: teacherStatus === Status.Red
+        ? `Critical teacher shortage: ${ratio.toFixed(1)}:1 ratio or ${qualPercent.toFixed(0)}% qualified`
+        : `Teacher shortage: ${ratio.toFixed(1)}:1 ratio or ${qualPercent.toFixed(0)}% qualified`,
+      active: true,
+    });
+  }
+
+  // Equipment risks
+  const equipmentStatus = calculateEquipmentStatus(school.equipment);
+  if (equipmentStatus !== Status.Green) {
+    const totalItems = school.equipment.reduce((sum, eq) => sum + eq.totalCount, 0);
+    const functionalItems = school.equipment.reduce((sum, eq) => sum + eq.functionalCount, 0);
+    const functionalPercentage = totalItems > 0 ? (functionalItems / totalItems) * 100 : 0;
+    flags.push({
+      category: RiskCategory.Services,
+      severity: equipmentStatus,
+      description: equipmentStatus === Status.Red
+        ? `Critical equipment failure: ${functionalPercentage.toFixed(0)}% functional`
+        : `Equipment issues: ${functionalPercentage.toFixed(0)}% functional`,
+      active: true,
+    });
+  }
+
+  // Computer lab risks
+  const computerLabStatus = calculateComputerLabStatus(school.computerLabs);
+  if (computerLabStatus !== Status.Green) {
+    const totalComputers = school.computerLabs.reduce((sum, lab) => sum + lab.totalComputers, 0);
+    const functionalComputers = school.computerLabs.reduce((sum, lab) => sum + lab.functionalComputers, 0);
+    const functionalPercentage = totalComputers > 0 ? (functionalComputers / totalComputers) * 100 : 0;
+    flags.push({
+      category: RiskCategory.Services,
+      severity: computerLabStatus,
+      description: computerLabStatus === Status.Red
+        ? `Critical computer lab issues: ${functionalPercentage.toFixed(0)}% functional`
+        : `Computer lab issues: ${functionalPercentage.toFixed(0)}% functional`,
+      active: true,
+    });
+  }
+
+  // Facilities risks
+  const facilityStatus = calculateFacilityStatus(school.facilities);
+  if (facilityStatus !== Status.Green) {
+    const closedCount = school.facilities.filter(f => f.operationalStatus === OperationalStatus.Closed).length;
+    const poorCount = school.facilities.filter(f => f.condition === Condition.Poor).length;
+    flags.push({
+      category: RiskCategory.Facilities,
+      severity: facilityStatus,
+      description: facilityStatus === Status.Red
+        ? `Critical facility issues: ${closedCount} closed, ${poorCount} in poor condition`
+        : `Facility concerns: ${closedCount} closed, ${poorCount} in poor condition`,
+      active: true,
+    });
+  }
+
   return flags;
 }
 
@@ -281,4 +355,106 @@ export function calculateNationalAggregates(schools: School[]): NationalAggregat
 
 export function getTotalBoardingCapacity(school: School): number {
   return school.hostels.reduce((sum, hostel) => sum + hostel.totalBeds, 0);
+}
+
+export function calculateTeacherStatus(teacherSummary: TeacherSummary, totalStudents: number): Status {
+  // Calculate teacher-student ratio (ideal: 1:25 or better)
+  const ratio = totalStudents / teacherSummary.total;
+  const qualificationPercentage = (teacherSummary.qualified / teacherSummary.total) * 100;
+
+  // Red: Ratio > 35 OR qualification < 60%
+  if (ratio > 35 || qualificationPercentage < 60) {
+    return Status.Red;
+  }
+
+  // Amber: Ratio > 30 OR qualification < 75%
+  if (ratio > 30 || qualificationPercentage < 75) {
+    return Status.Amber;
+  }
+
+  return Status.Green;
+}
+
+export function calculateEquipmentStatus(equipment: Equipment[]): Status {
+  if (equipment.length === 0) {
+    return Status.Red;
+  }
+
+  // Calculate overall functional percentage
+  const totalItems = equipment.reduce((sum, eq) => sum + eq.totalCount, 0);
+  const functionalItems = equipment.reduce((sum, eq) => sum + eq.functionalCount, 0);
+  const functionalPercentage = totalItems > 0 ? (functionalItems / totalItems) * 100 : 0;
+
+  // Check for poor condition equipment
+  const poorConditionCount = equipment.filter(eq => eq.condition === Condition.Poor).length;
+  const poorConditionPercentage = (poorConditionCount / equipment.length) * 100;
+
+  // Red: <60% functional OR >50% in poor condition
+  if (functionalPercentage < 60 || poorConditionPercentage > 50) {
+    return Status.Red;
+  }
+
+  // Amber: <80% functional OR >30% in poor condition
+  if (functionalPercentage < 80 || poorConditionPercentage > 30) {
+    return Status.Amber;
+  }
+
+  return Status.Green;
+}
+
+export function calculateComputerLabStatus(computerLabs: ComputerLab[]): Status {
+  if (computerLabs.length === 0) {
+    return Status.Red;
+  }
+
+  // Calculate overall functional percentage
+  const totalComputers = computerLabs.reduce((sum, lab) => sum + lab.totalComputers, 0);
+  const functionalComputers = computerLabs.reduce((sum, lab) => sum + lab.functionalComputers, 0);
+  const functionalPercentage = totalComputers > 0 ? (functionalComputers / totalComputers) * 100 : 0;
+
+  // Check for poor condition or closed labs
+  const hasPoorCondition = computerLabs.some(lab => lab.condition === Condition.Poor);
+  const hasClosed = computerLabs.some(lab => lab.operationalStatus === OperationalStatus.Closed);
+
+  // Red: <50% functional OR poor condition OR closed
+  if (functionalPercentage < 50 || hasPoorCondition || hasClosed) {
+    return Status.Red;
+  }
+
+  // Amber: <75% functional OR partial status
+  if (functionalPercentage < 75 || computerLabs.some(lab => lab.operationalStatus === OperationalStatus.Partial)) {
+    return Status.Amber;
+  }
+
+  return Status.Green;
+}
+
+export function calculateFacilityStatus(facilities: Facility[]): Status {
+  if (facilities.length === 0) {
+    return Status.Amber; // No facilities is a concern but not critical
+  }
+
+  // Check for closed facilities
+  const closedFacilities = facilities.filter(f => f.operationalStatus === OperationalStatus.Closed);
+  const closedPercentage = (closedFacilities.length / facilities.length) * 100;
+
+  // Check for poor condition facilities
+  const poorConditionFacilities = facilities.filter(f => f.condition === Condition.Poor);
+  const poorConditionPercentage = (poorConditionFacilities.length / facilities.length) * 100;
+
+  // Red: >40% closed OR >50% in poor condition
+  if (closedPercentage > 40 || poorConditionPercentage > 50) {
+    return Status.Red;
+  }
+
+  // Amber: >20% closed OR >30% in poor condition OR any partial status
+  if (
+    closedPercentage > 20 ||
+    poorConditionPercentage > 30 ||
+    facilities.some(f => f.operationalStatus === OperationalStatus.Partial)
+  ) {
+    return Status.Amber;
+  }
+
+  return Status.Green;
 }
