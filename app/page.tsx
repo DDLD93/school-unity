@@ -121,11 +121,11 @@ export default function OverviewPage() {
           <div className="flex items-center gap-3 mb-3">
             <div className="h-1 w-12 bg-gradient-to-r from-green-600 to-green-500 rounded-full" />
             <h1 className="text-4xl font-bold tracking-tight text-gray-900">
-              Executive Overview
+              Unity Schools oversight
             </h1>
           </div>
           <p className="text-lg text-muted-foreground ml-16">
-            National snapshot of Federal Unity Schools infrastructure status
+            Pilot View - For Ministry level visibility and early intervention
           </p>
         </div>
 
